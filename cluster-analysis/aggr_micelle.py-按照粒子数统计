@@ -1,0 +1,107 @@
+#!/usr/bin/python
+#coding = UFT-8
+
+#script for statistics of micelle based on Hierarchical Clustering
+from __future__ import division
+import math
+from operator import itemgetter
+from collections import OrderedDict,Counter
+
+#some parameters which should be changed for different sys.
+nframe = 50
+mol = 44
+nmo = 44
+np = mol*nmo
+
+lx = 40
+ly = 40
+lz = 40
+dlx = lx*0.5
+dly = ly*0.5
+dlz = lz*0.5
+
+results = open("results.dat",'w')
+
+frame_points = []
+all_points = []
+p2p= []
+
+#read the positions to all_points[[[,,],[]],[[],[]]]
+for i in range(nframe):
+    m = (np+2)*i+2
+    n = (np+2)*(i+1)
+    f = open('so.xyz','r')
+    for line in f.readlines()[m:n]:
+        lines = ' '.join(filter(lambda x: x, line.split(' ')))
+        linelist = lines.strip().split(" ")
+        del linelist[0]
+        frame_points.append(map(float,linelist))
+
+    for j in range(mol):
+        pointa = frame_points[j*nmo]
+        for k in range(1,nmo):
+            pointb = frame_points[j*nmo+k]
+            p2p = list(map(lambda x: x[0]-x[1], zip(pointb,pointa)))
+            if p2p[0] >= dlx:
+               pointb[0] = pointb[0]-lx
+            elif p2p[0] <= dlx*(-1):
+               pointb[0] = pointb[0]+lx
+            if p2p[1] >= dly:
+               pointb[1] = pointb[1]-lx
+            elif p2p[1] <= dly*(-1):
+               pointb[1] = pointb[1]+ly
+            if p2p[2] >= dlz:
+               pointb[2] = pointb[2]-lz
+            elif p2p[2] <= dlz*(-1):
+               pointb[2] = pointb[2]+lz
+            frame_points[j*nmo+k] = pointb
+
+    all_points.append(frame_points)    
+    frame_points = []
+    f.close()
+
+distp2p = {}
+aggr = {}
+numb = {}
+
+for frame_points in all_points:
+    groups = [idx for idx in range(np)]
+    groupNum = len(groups)
+    for idx1,point1 in enumerate(frame_points):
+        for idx2,point2 in enumerate(frame_points):
+            if (idx1 < idx2):
+               distance = math.sqrt(pow(abs(point1[0]-point2[0]),2) + pow(abs(point1[1]-point2[1]),2) +pow(abs(point1[2]-point2[2]),2))
+               distp2p[str(idx1)+" "+str(idx2)] = distance
+#    distp2p = OrderedDict(sorted(distp2p.iteritems(), key=itemgetter(1)))
+
+    for twopoints,distance in distp2p.iteritems():
+        pointA = int(twopoints.split(" ")[0])
+        pointB = int(twopoints.split(" ")[1])
+        pointAGroup = groups[pointA]
+        pointBGroup = groups[pointB]
+        if distance <= 1.5 and pointAGroup != pointBGroup:
+           for idx in range(len(groups)):
+               if groups[idx] == pointBGroup:
+                  groups[idx] = pointAGroup
+           groupNum -= 1
+    
+#calculate the aggregate number of micelle
+    for group in groups:
+        aggr[group] = aggr.get(group,0) + 1
+
+    for group,number in aggr.iteritems():
+        numb[number] = numb.get(number,0) + 1
+    aggr = {}
+
+#for (pi,ni) in numb.items():
+#    numb[pi] = ni/nframe
+
+print >> results, "Number:",groupNum
+for pi,ni in numb.iteritems():
+    aver = ni/nframe
+    if aver >= 0.1 and pi >= 44:
+       pi = int(pi/nmo)
+       print pi,"\t",ni,"\t",aver
+       print >> results, pi,"\t",ni,"\t",aver
+
+print "DONE!!"

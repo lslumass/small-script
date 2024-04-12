@@ -1,0 +1,117 @@
+#!/usr/bin/python
+#coding = UFT-8
+
+#script for statistics of micelle based on Hierarchical Clustering
+from __future__ import division
+import math
+from operator import itemgetter
+from collections import OrderedDict
+
+#some parameters which should be changed for different sys.
+nframe = 1
+mol = 235
+nmo = 49
+np = mol*nmo
+
+lx = 40
+ly = 40
+lz = 40
+dlx = lx*0.5
+dly = ly*0.5
+dlz = lz*0.5
+
+results = open("micelle.dat",'w')
+
+centers_points = []
+
+#read the positions to all_points[[[,,],[]],[[],[]]]
+for i in range(nframe):
+    m = (np+2)*i+2
+    n = (np+2)*(i+1)
+    frame_points = []
+    center_points = []
+    f = open('micelle.xyz','r')
+    for line in f.readlines()[m:n]:
+        lines = ' '.join(filter(lambda x: x, line.split(' ')))
+        linelist = lines.strip().split(" ")
+        del linelist[0]
+        frame_points.append(map(float,linelist))
+
+    for j in range(mol):
+    	  idx = 0+j*nmo
+    	  center_points.append(frame_points[idx])
+    f.close()
+    
+    groups = [idx for idx in range(mol)]
+    groupNum = len(groups)
+    for idx1,c1 in enumerate(center_points):
+    	  group1 = groups[idx1]
+    	  c1_1 = c1[:]
+    	  for idx in range(idx1*nmo,(idx1+1)*nmo):
+    	  	  rijx = abs(frame_points[idx][0]-c1[0])
+    	  	  if rijx > dlx:
+    	  	  	 rijx = 1
+    	  	  	 break
+    	  	  else: rijx = 0
+    	  for idx in range(idx1*nmo,(idx1+1)*nmo):
+    	  	  rijy = abs(frame_points[idx][1]-c1[1])
+    	  	  if rijy > dly:
+    	  	  	 rijy = 1
+    	  	  	 break
+    	  	  else: rijy = 0
+    	  for idx in range(idx1*nmo,(idx1+1)*nmo):
+    	  	  rijz = abs(frame_points[idx][2]-c1[2])
+    	  	  if rijz > dlz:
+    	  	  	 rijz = 1
+    	  	  	 break
+    	  	  else: rijz = 0
+    	  if rijx == 1 and rijy == 0 and rijz == 0:
+    	  	 c1_1[0] = c1_1[0]*(-1)
+    	  elif rijx == 0 and rijy == 1 and rijz == 0:
+    	  	 c1_1[1] = c1_1[1]*(-1)
+    	  elif rijx == 0 and rijy == 0 and rijz == 1:
+    	  	 c1_1[2] = c1_1[2]*(-1)
+    	  elif rijx == 1 and rijy == 1 and rijz == 0:
+    	  	 c1_1[0] = c1_1[0]*(-1)
+    	  	 c1_1[1] = c1_1[1]*(-1)
+    	  elif rijx == 1 and rijy == 0 and rijz == 1:
+    	  	 c1_1[0] = c1_1[0]*(-1)
+    	  	 c1_1[2] = c1_1[2]*(-1)
+    	  elif rijx == 0 and rijy == 1 and rijz == 1:
+    	  	 c1_1[1] = c1_1[1]*(-1)
+    	  	 c1_1[2] = c1_1[2]*(-1)
+    	  elif rijx == 1 and rijy == 1 and rijz == 1:
+    	  	 c1_1[0] = c1_1[0]*(-1)
+    	  	 c1_1[1] = c1_1[1]*(-1)
+    	  	 c1_1[2] = c1_1[2]*(-1)
+    	  
+    	  for idx2,c2 in enumerate(center_points):
+    	  	  group2 = groups[idx2]
+    	  	  if idx1 < idx2:
+    	  	     d = math.sqrt(pow(abs(c1[0]-c2[0]),2) + pow(abs(c1[1]-c2[1]),2) +pow(abs(c1[2]-c2[2]),2))
+    	  	     d_1 = math.sqrt(pow(abs(c1_1[0]-c2[0]),2) + pow(abs(1[1]-c2[1]),2) +pow(abs(c1_1[2]-c2[2]),2))
+    	  	     if (d <= 4.8 or d_1 <=4.8) and group1 != group2:
+    	  	     	for idx in range(len(groups)):
+                            if groups[idx] == group2:
+                               groups[idx] = group1
+          groupNum -= 1
+    aggr = {}
+    numb = {}
+    for group in groups:
+        aggr[group] = aggr.get(group,0) + 1
+
+    for group,number in aggr.iteritems():
+        numb[number] = numb.get(number,0) + 1
+    
+    sum1 = 0
+    sum2 = 0
+    sum3 = 0
+    for pi,ni in numb.iteritems():
+        sum1 = sum1 + ni*pi
+        sum2 = sum2 + ni
+        sum3 = sum3 + ni*pi*pi 
+    Mn = float(sum1)/float(sum2)
+    Mw = float(sum3)/float(sum1)
+    print >> results, '{0}{1}{2}'.format(str(i).rjust(6),str(Mn).rjust(6),str(Mw).rjust(6))
+
+print "DONE!!"
